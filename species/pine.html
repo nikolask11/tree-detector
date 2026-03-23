@@ -4,7 +4,48 @@
   <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Arbor — Pine</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="species.css"/>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg: #0d1208; --surface: #141a0e; --border: #2a3520; --text: #e8f0dc; --muted: #6b7d5a; }
+    html, body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; }
+    header { display: flex; align-items: center; justify-content: space-between; padding: 0 40px; height: 60px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 100; }
+    .logo { display: flex; align-items: baseline; gap: 10px; text-decoration: none; }
+    .logo-mark { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--species-color, #7ec845); }
+    .logo-sub { font-size: 10px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; }
+    nav { display: flex; gap: 24px; }
+    nav a { font-size: 11px; color: var(--muted); text-decoration: none; letter-spacing: 1px; text-transform: uppercase; transition: color 0.2s; }
+    nav a:hover, nav a.active { color: var(--species-color, #7ec845); }
+    .hero { border-bottom: 1px solid var(--border); padding: 60px 40px 0; background: var(--surface); }
+    .back { display: inline-block; font-size: 10px; color: var(--muted); text-decoration: none; letter-spacing: 1px; margin-bottom: 36px; transition: color 0.2s; }
+    .back:hover { color: var(--species-color, #7ec845); }
+    .hero-inner { display: flex; justify-content: space-between; align-items: flex-end; gap: 40px; padding-bottom: 48px; }
+    .hero-text { max-width: 640px; }
+    .eyebrow { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; font-style: italic; }
+    .title { font-family: 'DM Serif Display', serif; font-size: clamp(48px, 7vw, 80px); line-height: 1; color: var(--species-color, #7ec845); margin-bottom: 8px; }
+    .subtitle { font-size: 13px; color: var(--muted); margin-bottom: 24px; letter-spacing: 1px; }
+    .intro { font-size: 13px; color: var(--text); line-height: 1.9; margin-bottom: 24px; }
+    .tags { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tag { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; padding: 4px 10px; border: 1px solid var(--species-color, #7ec845); color: var(--species-color, #7ec845); opacity: 0.7; }
+    .hero-icon { font-size: 80px; opacity: 0.15; flex-shrink: 0; }
+    .facts-bar { display: flex; border-bottom: 1px solid var(--border); }
+    .fact { flex: 1; padding: 28px 32px; border-right: 1px solid var(--border); }
+    .fact:last-child { border-right: none; }
+    .fact-val { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--species-color, #7ec845); margin-bottom: 4px; }
+    .fact-label { font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+    .content { max-width: 1200px; margin: 0 auto; }
+    .sections { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); margin: 1px 0; }
+    .section { background: var(--bg); padding: 40px; display: flex; flex-direction: column; gap: 16px; }
+    .section:first-child { grid-column: 1 / -1; }
+    .section-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--species-color, #7ec845); padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    .section-body p { font-size: 12px; color: var(--muted); line-height: 1.9; }
+    .section-body p + p { margin-top: 12px; }
+    .nav-footer { display: flex; justify-content: space-between; padding: 32px 40px; border-top: 1px solid var(--border); }
+    .nav-btn { font-size: 11px; color: var(--muted); text-decoration: none; letter-spacing: 1px; transition: color 0.2s; }
+    .nav-btn:hover { color: var(--species-color, #7ec845); }
+    footer { border-top: 1px solid var(--border); padding: 24px 40px; display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+    @media (max-width: 700px) { header { padding: 0 20px; } .hero { padding: 40px 20px 0; } .hero-inner { flex-direction: column; } .hero-icon { display: none; } .facts-bar { flex-wrap: wrap; } .fact { min-width: 50%; } .sections { grid-template-columns: 1fr; } .section:first-child { grid-column: 1; } .section { padding: 28px 20px; } .nav-footer { padding: 24px 20px; } footer { padding: 20px; flex-direction: column; gap: 8px; } }
+  </style>
 </head>
 <body style="--species-color: #5a9fd4">
 <header>

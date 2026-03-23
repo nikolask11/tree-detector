@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Arbor — Tree Species of Cyprus</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1208;
+      --surface:   #141a0e;
+      --border:    #2a3520;
+      --accent:    #7ec845;
+      --text:      #e8f0dc;
+      --muted:     #6b7d5a;
+
+      --bayan:      #7ec845;
+      --eucalyptus: #4fc3a1;
+      --pine:       #5a9fd4;
+      --olive:      #c8b44a;
+      --palm:       #e07ca0;
+      --cypress:    #9b7ee8;
+    }
+
+    html, body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 1000; opacity: 0.4;
+    }
+
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 40px; height: 60px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .logo { display: flex; align-items: baseline; gap: 10px; text-decoration: none; }
+    .logo-mark { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--accent); }
+    .logo-sub { font-size: 10px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; }
+
+    nav { display: flex; gap: 24px; }
+    nav a { font-size: 11px; color: var(--muted); text-decoration: none; letter-spacing: 1px; transition: color 0.2s; }
+    nav a:hover, nav a.active { color: var(--accent); }
+
+    .hero {
+      padding: 80px 40px 60px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .hero-eyebrow {
+      font-size: 10px; letter-spacing: 4px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 16px;
+    }
+
+    .hero-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(36px, 5vw, 56px);
+      line-height: 1.1;
+      color: var(--text);
+      margin-bottom: 20px;
+    }
+
+    .hero-title em { color: var(--accent); font-style: italic; }
+
+    .hero-desc {
+      font-size: 13px; color: var(--muted); line-height: 1.8;
+      max-width: 560px;
+    }
+
+    .divider {
+      width: 40px; height: 1px;
+      background: var(--border); margin: 40px auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      margin: 0 40px 80px;
+    }
+
+    .card {
+      background: var(--surface);
+      padding: 36px 32px;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: background 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 3px; height: 100%;
+      background: var(--card-color);
+      transform: scaleY(0);
+      transform-origin: bottom;
+      transition: transform 0.3s ease;
+    }
+
+    .card:hover { background: #1a2214; }
+    .card:hover::before { transform: scaleY(1); }
+
+    .card-icon { font-size: 32px; }
+
+    .card-name {
+      font-family: 'DM Serif Display', serif;
+      font-size: 22px;
+      color: var(--card-color);
+    }
+
+    .card-latin {
+      font-size: 10px; color: var(--muted);
+      letter-spacing: 1px; font-style: italic;
+    }
+
+    .card-desc {
+      font-size: 11px; color: var(--muted);
+      line-height: 1.7; flex: 1;
+    }
+
+    .card-link {
+      font-size: 10px;
+      color: var(--card-color);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      display: flex; align-items: center; gap: 6px;
+      margin-top: 8px;
+    }
+
+    .card-link::after { content: '→'; transition: transform 0.2s; }
+    .card:hover .card-link::after { transform: translateX(4px); }
+
+    .tag-row {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+
+    .tag {
+      font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+      padding: 3px 8px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 24px 40px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 10px; color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="index.html" class="logo">
+    <span class="logo-mark">🌿 Arbor</span>
+    <span class="logo-sub">Tree Detector</span>
+  </a>
+  <nav>
+    <a href="index.html">Detector</a>
+    <a href="species.html" class="active">Species</a>
+  </nav>
+</header>
+
+<div class="hero">
+  <div class="hero-eyebrow">Field Guide</div>
+  <h1 class="hero-title">Six trees of<br><em>Cyprus</em></h1>
+  <p class="hero-desc">A reference guide to the tree species detected by Arbor — their ecology, habitat, cultural history, and role in the Cypriot landscape.</p>
+</div>
+
+<div class="grid">
+
+  <a href="species/bayan.html" class="card" style="--card-color: var(--bayan)">
+    <div class="card-icon">🌳</div>
+    <div class="card-name">Bayan</div>
+    <div class="card-latin">Ficus benghalensis</div>
+    <div class="tag-row">
+      <span class="tag">Ornamental</span>
+      <span class="tag">Shade tree</span>
+      <span class="tag">Introduced</span>
+    </div>
+    <div class="card-desc">A majestic fig known for its sweeping aerial roots, widely planted in Cypriot parks and public spaces for shade and grandeur.</div>
+    <div class="card-link">View species</div>
+  </a>
+
+  <a href="species/eucalyptus.html" class="card" style="--card-color: var(--eucalyptus)">
+    <div class="card-icon">🌿</div>
+    <div class="card-name">Eucalyptus</div>
+    <div class="card-latin">Eucalyptus camaldulensis</div>
+    <div class="tag-row">
+      <span class="tag">Fast-growing</span>
+      <span class="tag">Introduced</span>
+      <span class="tag">Riparian</span>
+    </div>
+    <div class="card-desc">Introduced to Cyprus in the 19th century for drainage and timber, now one of the most recognisable trees across the island's lowlands.</div>
+    <div class="card-link">View species</div>
+  </a>
+
+  <a href="species/pine.html" class="card" style="--card-color: var(--pine)">
+    <div class="card-icon">🌲</div>
+    <div class="card-name">Pine</div>
+    <div class="card-latin">Pinus brutia</div>
+    <div class="tag-row">
+      <span class="tag">Native</span>
+      <span class="tag">Dominant forest</span>
+      <span class="tag">Honey production</span>
+    </div>
+    <div class="card-desc">The Calabrian pine dominates Cyprus's mountain forests, covering both the Troodos and Kyrenia ranges from sea level to 1,400m.</div>
+    <div class="card-link">View species</div>
+  </a>
+
+  <a href="species/olive.html" class="card" style="--card-color: var(--olive)">
+    <div class="card-icon">🫒</div>
+    <div class="card-name">Olive</div>
+    <div class="card-latin">Olea europaea</div>
+    <div class="tag-row">
+      <span class="tag">Native</span>
+      <span class="tag">Cultivated</span>
+      <span class="tag">Cultural symbol</span>
+    </div>
+    <div class="card-desc">Cultivated on Cyprus for over 2,000 years, the olive tree is deeply woven into the island's identity, cuisine, and folklore.</div>
+    <div class="card-link">View species</div>
+  </a>
+
+  <a href="species/palm.html" class="card" style="--card-color: var(--palm)">
+    <div class="card-icon">🌴</div>
+    <div class="card-name">Palm</div>
+    <div class="card-latin">Phoenix theophrasti</div>
+    <div class="tag-row">
+      <span class="tag">Endemic</span>
+      <span class="tag">Coastal</span>
+      <span class="tag">Protected</span>
+    </div>
+    <div class="card-desc">The Cretan date palm, endemic to the eastern Mediterranean, has one of its last remaining native stands at Lara Bay in the Akamas peninsula.</div>
+    <div class="card-link">View species</div>
+  </a>
+
+  <a href="species/cypress.html" class="card" style="--card-color: var(--cypress)">
+    <div class="card-icon">🌲</div>
+    <div class="card-name">Cypress</div>
+    <div class="card-latin">Cupressus sempervirens</div>
+    <div class="tag-row">
+      <span class="tag">Native</span>
+      <span class="tag">Pentadaktylos</span>
+      <span class="tag">Ancient symbol</span>
+    </div>
+    <div class="card-desc">The Mediterranean cypress is so tied to Cyprus that the island's very name may derive from it. Its slender silhouette defines the Kyrenia mountain skyline.</div>
+    <div class="card-link">View species</div>
+  </a>
+
+</div>
+
+<footer>
+  <span>Arbor — Tree Species Detector</span>
+  <span>Cyprus Field Guide</span>
+</footer>
+
+</body>
+</html>

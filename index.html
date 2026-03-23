@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Arbor — Tree Species Detector</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1208;
+      --surface:   #141a0e;
+      --border:    #2a3520;
+      --accent:    #7ec845;
+      --accent2:   #b5e67a;
+      --text:      #e8f0dc;
+      --muted:     #6b7d5a;
+      --danger:    #e07040;
+
+      --bayan:      #7ec845;
+      --eucalyptus: #4fc3a1;
+      --pine:       #5a9fd4;
+      --olive:      #c8b44a;
+      --palm:       #e07ca0;
+      --cypress:    #9b7ee8;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      overflow: hidden;
+    }
+
+    /* ── Noise texture overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.4;
+    }
+
+    /* ── Layout ── */
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      grid-template-rows: 60px 1fr;
+      height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .logo {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .logo-mark {
+      font-family: 'DM Serif Display', serif;
+      font-size: 22px;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+    }
+
+    .logo-sub {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.4s;
+    }
+    .status-dot.live { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 2s infinite; }
+    .status-dot.error { background: var(--danger); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Sidebar ── */
+    aside {
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-section {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-label {
+      font-size: 9px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    /* ── Controls ── */
+    .btn {
+      width: 100%;
+      padding: 11px 16px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn:hover { background: var(--border); border-color: var(--accent); color: var(--accent); }
+    .btn.primary { border-color: var(--accent); color: var(--accent); }
+    .btn.primary:hover { background: var(--accent); color: var(--bg); }
+    .btn.danger { border-color: var(--danger); color: var(--danger); }
+    .btn.danger:hover { background: var(--danger); color: #fff; }
+    .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .btn + .btn { margin-top: 8px; }
+
+    .btn-icon { font-size: 14px; }
+
+    /* ── Threshold ── */
+    .slider-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 11px;
+    }
+
+    .slider-val {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    input[type=range] {
+      width: 100%;
+      -webkit-appearance: none;
+      height: 2px;
+      background: var(--border);
+      outline: none;
+      border-radius: 2px;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+
+    /* ── Species legend ── */
+    .species-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .species-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+    }
+
+    .species-left {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .species-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .species-name { color: var(--text); }
+
+    .species-count {
+      color: var(--muted);
+      font-size: 10px;
+      min-width: 20px;
+      text-align: right;
+      transition: color 0.3s;
+    }
+    .species-count.active { color: var(--accent2); }
+
+    /* ── Stats ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 12px;
+    }
+
+    .stat-val {
+      font-family: 'DM Serif Display', serif;
+      font-size: 24px;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* ── Log ── */
+    .log-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+    }
+
+    .log-area::-webkit-scrollbar { width: 3px; }
+    .log-area::-webkit-scrollbar-thumb { background: var(--border); }
+
+    .log-entry {
+      font-size: 10px;
+      color: var(--muted);
+      padding: 3px 0;
+      border-bottom: 1px solid #1a2210;
+      display: flex;
+      gap: 8px;
+    }
+
+    .log-time { color: #3a4a2a; flex-shrink: 0; }
+    .log-msg.ok { color: var(--accent); }
+    .log-msg.err { color: var(--danger); }
+    .log-msg.info { color: var(--muted); }
+
+    /* ── Main canvas area ── */
+    main {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    /* Crosshair decoration */
+    main::before, main::after {
+      content: '';
+      position: absolute;
+      pointer-events: none;
+    }
+    main::before {
+      top: 50%; left: 50%;
+      width: 40px; height: 40px;
+      border-top: 1px solid var(--border);
+      border-left: 1px solid var(--border);
+      transform: translate(-50%, -50%);
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+
+    #webcam {
+      display: block;
+      max-width: 100%;
+      max-height: calc(100vh - 60px);
+      object-fit: contain;
+    }
+
+    #overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+
+    /* ── Splash / loading ── */
+    .splash {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: var(--bg);
+      z-index: 10;
+    }
+
+    .splash-icon {
+      font-size: 48px;
+      filter: grayscale(0.3);
+    }
+
+    .splash-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 28px;
+      color: var(--accent);
+      letter-spacing: -1px;
+    }
+
+    .splash-sub {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .loader {
+      width: 180px;
+      height: 2px;
+      background: var(--border);
+      overflow: hidden;
+      border-radius: 2px;
+      margin-top: 8px;
+    }
+
+    .loader-bar {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .loader-text {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .splash.hidden { display: none; }
+
+    /* ── Corner decorations ── */
+    .corner {
+      position: absolute;
+      width: 16px; height: 16px;
+      pointer-events: none;
+    }
+    .corner.tl { top: 8px; left: 8px; border-top: 1px solid var(--accent); border-left: 1px solid var(--accent); }
+    .corner.tr { top: 8px; right: 8px; border-top: 1px solid var(--accent); border-right: 1px solid var(--accent); }
+    .corner.bl { bottom: 8px; left: 8px; border-bottom: 1px solid var(--accent); border-left: 1px solid var(--accent); }
+    .corner.br { bottom: 8px; right: 8px; border-bottom: 1px solid var(--accent); border-right: 1px solid var(--accent); }
+
+    /* ── FPS badge ── */
+    #fps-badge {
+      position: absolute;
+      top: 12px; right: 12px;
+      background: rgba(13,18,8,0.8);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      backdrop-filter: blur(4px);
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="logo">
+      <span class="logo-mark">🌿 Arbor</span>
+      <span class="logo-sub">Tree Species Detection</span>
+    </div>
+    <div class="status-bar">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Initialising</span>
+    </div>
+  </header>
+
+  <!-- ── Sidebar ── -->
+  <aside>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Camera</div>
+      <button class="btn primary" id="btn-start">
+        <span class="btn-icon">▶</span> Start Camera
+      </button>
+      <button class="btn danger" id="btn-stop" disabled>
+        <span class="btn-icon">■</span> Stop
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Confidence Threshold</div>
+      <div class="slider-row">
+        <span>Min confidence</span>
+        <span class="slider-val" id="threshold-val">0.40</span>
+      </div>
+      <input type="range" id="threshold" min="10" max="90" value="40" step="5"/>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Stats</div>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-val" id="stat-fps">—</div>
+          <div class="stat-label">FPS</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="stat-detections">0</div>
+          <div class="stat-label">Detections</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="stat-frames">0</div>
+          <div class="stat-label">Frames</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="stat-ms">—</div>
+          <div class="stat-label">ms/frame</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Species</div>
+      <div class="species-list" id="species-list">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <div class="log-area" id="log-area">
+      <!-- log entries -->
+    </div>
+
+  </aside>
+
+  <!-- ── Main ── -->
+  <main>
+    <div class="splash" id="splash">
+      <div class="splash-icon">🌳</div>
+      <div class="splash-title">Arbor</div>
+      <div class="splash-sub">Tree Species Detector</div>
+      <div class="loader"><div class="loader-bar" id="loader-bar"></div></div>
+      <div class="loader-text" id="loader-text">Loading model…</div>
+    </div>
+
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <div class="canvas-wrapper" id="canvas-wrapper">
+      <video id="webcam" autoplay playsinline muted></video>
+      <canvas id="overlay"></canvas>
+    </div>
+
+    <div id="fps-badge">— fps</div>
+  </main>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════
+const MODEL_PATH = 'web_model/model.json';
+const INPUT_SIZE = 640;
+
+const CLASSES = ['bayan', 'eucalyptus', 'pine', 'olive', 'palm', 'cypress'];
+
+const CLASS_COLORS = {
+  bayan:      '#7ec845',
+  eucalyptus: '#4fc3a1',
+  pine:       '#5a9fd4',
+  olive:      '#c8b44a',
+  palm:       '#e07ca0',
+  cypress:    '#9b7ee8',
+};
+
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+let model = null;
+let stream = null;
+let running = false;
+let animFrame = null;
+let threshold = 0.40;
+
+let frameCount = 0;
+let totalDetections = 0;
+let fpsSmooth = 0;
+let lastTime = performance.now();
+
+const speciesCounts = {};
+CLASSES.forEach(c => speciesCounts[c] = 0);
+
+// ═══════════════════════════════════════════════════
+//  DOM refs
+// ═══════════════════════════════════════════════════
+const video       = document.getElementById('webcam');
+const overlay     = document.getElementById('overlay');
+const ctx         = overlay.getContext('2d');
+const splash      = document.getElementById('splash');
+const loaderBar   = document.getElementById('loader-bar');
+const loaderText  = document.getElementById('loader-text');
+const statusDot   = document.getElementById('status-dot');
+const statusText  = document.getElementById('status-text');
+const btnStart    = document.getElementById('btn-start');
+const btnStop     = document.getElementById('btn-stop');
+const thresholdEl = document.getElementById('threshold');
+const threshValEl = document.getElementById('threshold-val');
+const fpsBadge    = document.getElementById('fps-badge');
+const logArea     = document.getElementById('log-area');
+const speciesList = document.getElementById('species-list');
+
+// ═══════════════════════════════════════════════════
+//  LOGGING
+// ═══════════════════════════════════════════════════
+function log(msg, type='info') {
+  const now = new Date();
+  const t = now.toTimeString().slice(0,8);
+  const el = document.createElement('div');
+  el.className = 'log-entry';
+  el.innerHTML = `<span class="log-time">${t}</span><span class="log-msg ${type}">${msg}</span>`;
+  logArea.prepend(el);
+  if (logArea.children.length > 60) logArea.removeChild(logArea.lastChild);
+}
+
+function setStatus(label, state='idle') {
+  statusText.textContent = label;
+  statusDot.className = 'status-dot' + (state === 'live' ? ' live' : state === 'error' ? ' error' : '');
+}
+
+// ═══════════════════════════════════════════════════
+//  SPECIES SIDEBAR
+// ═══════════════════════════════════════════════════
+function buildSpeciesList() {
+  speciesList.innerHTML = '';
+  CLASSES.forEach(cls => {
+    const row = document.createElement('div');
+    row.className = 'species-item';
+    row.id = `sp-${cls}`;
+    row.innerHTML = `
+      <div class="species-left">
+        <div class="species-dot" style="background:${CLASS_COLORS[cls]}"></div>
+        <span class="species-name">${cls}</span>
+      </div>
+      <span class="species-count" id="sp-count-${cls}">0</span>
+    `;
+    speciesList.appendChild(row);
+  });
+}
+
+function updateSpeciesCounts(detections) {
+  // Reset
+  CLASSES.forEach(c => speciesCounts[c] = 0);
+  detections.forEach(d => speciesCounts[d.cls]++);
+  CLASSES.forEach(cls => {
+    const el = document.getElementById(`sp-count-${cls}`);
+    if (el) {
+      el.textContent = speciesCounts[cls];
+      el.className = 'species-count' + (speciesCounts[cls] > 0 ? ' active' : '');
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  MODEL LOAD
+// ═══════════════════════════════════════════════════
+async function loadModel() {
+  log('Loading TF.js model…');
+  setStatus('Loading model…');
+  loaderBar.style.width = '20%';
+  loaderText.textContent = 'Downloading model weights…';
+
+  try {
+    model = await tf.loadGraphModel(MODEL_PATH);
+    loaderBar.style.width = '80%';
+    loaderText.textContent = 'Warming up…';
+    log('Model loaded ✓', 'ok');
+
+    // Warmup
+    const dummy = tf.zeros([1, INPUT_SIZE, INPUT_SIZE, 3]);
+    await model.executeAsync(dummy);
+    dummy.dispose();
+
+    loaderBar.style.width = '100%';
+    loaderText.textContent = 'Ready';
+    log('Warmup done ✓', 'ok');
+    setStatus('Ready — press Start');
+
+    setTimeout(() => splash.classList.add('hidden'), 600);
+  } catch(e) {
+    loaderText.textContent = 'Error loading model';
+    log(`Model error: ${e.message}`, 'err');
+    setStatus('Model failed', 'error');
+    console.error(e);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  CAMERA
+// ═══════════════════════════════════════════════════
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'environment' }
+    });
+    video.srcObject = stream;
+    await new Promise(r => video.onloadeddata = r);
+
+    // Match canvas to video
+    overlay.width  = video.videoWidth;
+    overlay.height = video.videoHeight;
+
+    log(`Camera on: ${video.videoWidth}×${video.videoHeight}`, 'ok');
+    setStatus('Live', 'live');
+    btnStart.disabled = true;
+    btnStop.disabled  = false;
+    running = true;
+    detectLoop();
+  } catch(e) {
+    log(`Camera error: ${e.message}`, 'err');
+    setStatus('Camera failed', 'error');
+  }
+}
+
+function stopCamera() {
+  running = false;
+  if (animFrame) cancelAnimationFrame(animFrame);
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  btnStart.disabled = false;
+  btnStop.disabled  = true;
+  setStatus('Stopped');
+  log('Camera stopped');
+}
+
+// ═══════════════════════════════════════════════════
+//  INFERENCE
+// ═══════════════════════════════════════════════════
+async function runInference() {
+  const t0 = performance.now();
+
+  // Preprocess: [H,W,3] → [1,640,640,3] float32 /255
+  const input = tf.tidy(() =>
+    tf.browser.fromPixels(video)
+      .resizeBilinear([INPUT_SIZE, INPUT_SIZE])
+      .expandDims(0)
+      .div(255.0)
+  );
+
+  // Output shape: [1, 10, 8400]  (4 box coords + 6 class scores)
+  const rawOutput = await model.executeAsync(input);
+  input.dispose();
+
+  const data = await rawOutput.data();
+  rawOutput.dispose();
+
+  const ms = performance.now() - t0;
+  document.getElementById('stat-ms').textContent = ms.toFixed(0);
+
+  // Parse detections
+  // output: [1, num_outputs, 8400]
+  // num_outputs = 4 (xywh) + 6 (class scores) = 10
+  const numOutputs = 10;  // matches your (1,10,8400) shape
+  const numAnchors = 8400;
+
+  const detections = [];
+
+  for (let a = 0; a < numAnchors; a++) {
+    // cx, cy, w, h
+    const cx = data[0 * numAnchors + a];
+    const cy = data[1 * numAnchors + a];
+    const w  = data[2 * numAnchors + a];
+    const h  = data[3 * numAnchors + a];
+
+    // class scores (indices 4..9)
+    let maxScore = -1, maxCls = -1;
+    for (let c = 0; c < 6; c++) {
+      const score = data[(4 + c) * numAnchors + a];
+      if (score > maxScore) { maxScore = score; maxCls = c; }
+    }
+
+    if (maxScore < threshold) continue;
+
+    detections.push({ cx, cy, w, h, score: maxScore, clsIdx: maxCls, cls: CLASSES[maxCls] });
+  }
+
+  // NMS (simple greedy per class)
+  const kept = nms(detections, 0.45);
+  return { detections: kept, ms };
+}
+
+// ═══════════════════════════════════════════════════
+//  NMS
+// ═══════════════════════════════════════════════════
+function iou(a, b) {
+  const ax1 = a.cx - a.w/2, ay1 = a.cy - a.h/2, ax2 = a.cx + a.w/2, ay2 = a.cy + a.h/2;
+  const bx1 = b.cx - b.w/2, by1 = b.cy - b.h/2, bx2 = b.cx + b.w/2, by2 = b.cy + b.h/2;
+  const ix1 = Math.max(ax1,bx1), iy1 = Math.max(ay1,by1);
+  const ix2 = Math.min(ax2,bx2), iy2 = Math.min(ay2,by2);
+  const inter = Math.max(0, ix2-ix1) * Math.max(0, iy2-iy1);
+  const areaA = a.w * a.h, areaB = b.w * b.h;
+  return inter / (areaA + areaB - inter + 1e-6);
+}
+
+function nms(dets, iouThresh) {
+  dets.sort((a,b) => b.score - a.score);
+  const kept = [];
+  const suppressed = new Array(dets.length).fill(false);
+  for (let i = 0; i < dets.length; i++) {
+    if (suppressed[i]) continue;
+    kept.push(dets[i]);
+    for (let j = i+1; j < dets.length; j++) {
+      if (!suppressed[j] && dets[i].clsIdx === dets[j].clsIdx && iou(dets[i], dets[j]) > iouThresh)
+        suppressed[j] = true;
+    }
+  }
+  return kept;
+}
+
+// ═══════════════════════════════════════════════════
+//  DRAW
+// ═══════════════════════════════════════════════════
+function drawDetections(detections) {
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+  const scaleX = overlay.width  / INPUT_SIZE;
+  const scaleY = overlay.height / INPUT_SIZE;
+
+  detections.forEach(d => {
+    const color = CLASS_COLORS[d.cls];
+
+    const x = (d.cx - d.w/2) * scaleX;
+    const y = (d.cy - d.h/2) * scaleY;
+    const w = d.w * scaleX;
+    const h = d.h * scaleY;
+
+    // Box glow
+    ctx.shadowColor = color;
+    ctx.shadowBlur  = 12;
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2;
+    ctx.strokeRect(x, y, w, h);
+    ctx.shadowBlur  = 0;
+
+    // Corner accents
+    const cs = 12;
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = color;
+    [[x,y,1,1],[x+w,y,-1,1],[x,y+h,1,-1],[x+w,y+h,-1,-1]].forEach(([cx,cy,dx,dy]) => {
+      ctx.beginPath();
+      ctx.moveTo(cx + dx*cs, cy);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx, cy + dy*cs);
+      ctx.stroke();
+    });
+
+    // Label background
+    const label = `${d.cls}  ${(d.score*100).toFixed(0)}%`;
+    ctx.font = '500 11px DM Mono, monospace';
+    const tw = ctx.measureText(label).width;
+    const lx = x, ly = y > 22 ? y - 22 : y + h + 2;
+
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.9;
+    ctx.fillRect(lx, ly, tw + 14, 20);
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = '#0d1208';
+    ctx.fillText(label, lx + 7, ly + 14);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  DETECT LOOP
+// ═══════════════════════════════════════════════════
+async function detectLoop() {
+  if (!running) return;
+
+  const { detections, ms } = await runInference();
+  drawDetections(detections);
+  updateSpeciesCounts(detections);
+
+  // Stats
+  frameCount++;
+  totalDetections += detections.length;
+
+  const now = performance.now();
+  const dt = (now - lastTime) / 1000;
+  lastTime = now;
+  fpsSmooth = fpsSmooth * 0.8 + (1/dt) * 0.2;
+
+  document.getElementById('stat-fps').textContent = fpsSmooth.toFixed(1);
+  document.getElementById('stat-detections').textContent = detections.length;
+  document.getElementById('stat-frames').textContent = frameCount;
+  fpsBadge.textContent = `${fpsSmooth.toFixed(1)} fps`;
+
+  animFrame = requestAnimationFrame(detectLoop);
+}
+
+// ═══════════════════════════════════════════════════
+//  EVENTS
+// ═══════════════════════════════════════════════════
+btnStart.addEventListener('click', startCamera);
+btnStop.addEventListener('click', stopCamera);
+
+thresholdEl.addEventListener('input', () => {
+  threshold = parseInt(thresholdEl.value) / 100;
+  threshValEl.textContent = threshold.toFixed(2);
+});
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+buildSpeciesList();
+loadModel();
+</script>
+</body>
+</html>
